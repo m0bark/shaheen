@@ -90,7 +90,12 @@ def write_log(strategy: str, d: pd.DataFrame) -> None:
 
 def sig_analyst(summ, an, big):
     """Upgrade or fresh initiation at Buy, recorded within the last 2 days."""
-    if an.empty:
+    # last_action/last_rating/last_firm only exist once a local ratings tape has
+    # been swept in; without it the analysts sheet is yfinance consensus only,
+    # so there are no dated upgrade events to log - return empty, do not crash
+    # the whole hourly run over a missing column.
+    need = ("last_action", "last_rating", "last_firm")
+    if an.empty or any(c not in an.columns for c in need):
         return pd.DataFrame()
     a = an.copy()
     a["days_ago"] = pd.to_numeric(a.get("days_ago"), errors="coerce")

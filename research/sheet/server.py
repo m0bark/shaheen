@@ -317,7 +317,10 @@ async function get(t){if(!data[t])data[t]=(await (await fetch("/api/"+t)).json()
 function rows(){
  const d=data[tab]?data[tab].rows:[];
  const q=$("#q").value.trim().toLowerCase(), sec=$("#sector").value;
- let r=d.filter(x=>{
+ // an exact ticker wins outright: "ON" must mean ON Semiconductor, not every
+ // row containing the letters "on" (Corporation, Johnson, Information...)
+ const exact=q?d.filter(x=>String(x.symbol||"").toLowerCase()===q):[];
+ let r=exact.length?exact.filter(x=>(!sec||x.sector===sec)&&(!preset||preset(x))):d.filter(x=>{
   if(sec&&x.sector!==sec)return false;
   if(preset&&!preset(x))return false;
   if(!q)return true;
