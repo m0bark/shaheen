@@ -30,7 +30,7 @@ piv    = input.int(6, "Swing strength (bars each side)", minval = 2, group = grp
 tolMlt = input.float(0.5, "Merge tolerance (x ATR)", minval = 0.1, step = 0.1,
      group = grpD, tooltip = "Swings within this distance count as one level/zone")
 minShow = input.int(1, "Min touches to draw a level", minval = 1, group = grpD)
-maxShow = input.int(25, "Max levels to show", minval = 2, maxval = 60, group = grpD)
+maxShow = input.int(40, "Max levels to show", minval = 2, maxval = 80, group = grpD)
 lblMin  = input.int(2, "Label a level from N touches", minval = 1, group = grpD,
      tooltip = "Weaker levels still get a line/zone, just no text, to cut clutter")
 
@@ -48,8 +48,10 @@ useRound = input.bool(true, "Tag round-number levels (+round)", group = grpC)
 useVol   = input.bool(true, "Tag levels tested on heavy volume (+vol)", group = grpC)
 
 grpK   = "Colors"
-cSup = input.color(color.new(color.green, 0), "Support / demand", group = grpK)
-cRes = input.color(color.new(color.red, 0),   "Resistance / supply", group = grpK)
+cSup  = input.color(color.new(color.green, 0), "Strong support / demand", group = grpK)
+cRes  = input.color(color.new(color.red, 0),   "Strong resistance / supply", group = grpK)
+cWeak = input.color(color.new(color.gray, 0),  "Weak levels (under STRONG)", group = grpK,
+     tooltip = "Levels with fewer than the STRONG touch count are drawn in this colour")
 
 // ---- per-bar context (must run every bar) ----------------------------
 atr    = ta.atr(14)
@@ -156,9 +158,12 @@ if barstate.islast
             p = array.get(lvlP, i)
             tc = array.get(lvlT, i)
             isSup = close > p
-            col = isSup ? cSup : cRes
-            w = tc >= majorN ? 3 : tc >= strongN ? 2 : 1
-            stl = tc >= strongN ? line.style_solid : line.style_dashed
+            isStrong = tc >= strongN
+            // strong levels keep the green/red side colour; weak ones get the
+            // separate weak colour so the walls that matter stand out
+            col = isStrong ? (isSup ? cSup : cRes) : cWeak
+            w = tc >= majorN ? 3 : isStrong ? 2 : 1
+            stl = isStrong ? line.style_solid : line.style_dashed
 
             array.push(lns, line.new(bar_index - 1, p, bar_index, p,
                  extend = extend.both, color = col, width = w, style = stl))
