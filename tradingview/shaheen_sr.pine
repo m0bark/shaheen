@@ -153,9 +153,12 @@ if barstate.islast
                 tag := tag + " +round"
             if useVol and array.get(lvlV, i)
                 tag := tag + " +vol"
-            array.push(lbs, label.new(bar_index, p, tag, xloc = xloc.bar_index,
-                 style = isSup ? label.style_label_up : label.style_label_down,
-                 color = color.new(col, 80), textcolor = col, size = size.small))
+            // dark box + bright coloured text reads cleanly on any chart, and
+            // sitting a few bars into the right margin keeps it off the candles
+            array.push(lbs, label.new(bar_index + 4, p, tag, xloc = xloc.bar_index,
+                 style = label.style_label_left,
+                 color = color.new(color.black, 10), textcolor = col,
+                 size = size.normal))
 
 // ---- confluence MAs (global-scope plots) -----------------------------
 plot(showMA ? sma50 : na, "MA 50", color.new(color.orange, 0), 1)
