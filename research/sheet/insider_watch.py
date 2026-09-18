@@ -124,15 +124,20 @@ def insider_summary(ticker: str, days: int = 30, polite: float = 0.12) -> dict:
         time.sleep(polite)
     base.update(n_buyers=len(buyers), n_sellers=len(sellers),
                 buy_usd=round(buy_usd), sell_usd=round(sell_usd))
+    # dollar floors so a token sale is not dressed up as a warning. A real
+    # insider signal is either a cluster of open-market buyers or genuinely
+    # large selling; everything smaller is context, not an alert.
+    BIG = 2_000_000        # "heavy" selling floor
+    MEANINGFUL = 250_000   # below this, treat as quiet noise
     if len(buyers) >= 2 and buy_usd > sell_usd:
         base["label"] = "BUY CLUSTER: %d insiders bought $%s (%dd)" % (
             len(buyers), _m(buy_usd), days)
-    elif len(buyers) >= 1 and buy_usd >= sell_usd:
+    elif len(buyers) >= 1 and buy_usd >= max(sell_usd, MEANINGFUL):
         base["label"] = "%d insider buy(s) $%s (%dd)" % (len(buyers), _m(buy_usd), days)
-    elif sell_usd > 0 and sell_usd > buy_usd * 2:
+    elif sell_usd >= BIG and sell_usd > buy_usd * 2:
         base["label"] = "WARNING heavy selling: $%s by %d (%dd)" % (
             _m(sell_usd), len(sellers), days)
-    elif sell_usd > 0:
+    elif sell_usd >= MEANINGFUL:
         base["label"] = "some selling $%s (%dd)" % (_m(sell_usd), days)
     else:
         base["label"] = "quiet (%dd)" % days
