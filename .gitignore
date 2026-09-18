@@ -48,6 +48,19 @@ research/surges/*.csv
 research/panic_reversal/*.csv
 research/analysts/*.csv
 
+# Study outputs written beside their scripts in research/sheet. The scripts are
+# committed; their tables are not, because they go stale the moment the data
+# is refetched. Two inputs are deliberate exceptions and stay tracked:
+# sp500.csv is the universe definition, finalists.json the frozen search result.
+research/sheet/*.csv
+# Exceptions, and each is an INPUT or your own state rather than an output:
+!research/sheet/sp500.csv          # the universe definition
+!research/sheet/sec_ciks.csv       # ticker to SEC CIK mapping
+!research/sheet/watchlist.csv      # your watchlist
+!research/sheet/following.csv      # analysts you follow
+!research/sheet/optimize_train.csv # frozen search result
+!research/sheet/combo_train.csv    # frozen search result
+
 # generated workbooks and reports, rebuilt by build_workbook.py
 *.xlsx
 *.xlsm

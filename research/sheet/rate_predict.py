@@ -1,4 +1,4 @@
-"""Is the rate regime forecastable AT ALL from trailing data? The prior question.
+"""Is the rate regime forecastable AT ALL from trailing data? The prior ask.
 
     python research/sheet/rate_predict.py
     python research/sheet/rate_predict.py --shuffles 50
@@ -43,7 +43,7 @@ fitted on a shuffled target. Any one of those failing is a null result.
 
 THE HONEST MULTIPLICITY
 Four pre-registered models plus eleven univariate logits is fifteen variants,
-so the threshold on any t is sqrt(2*ln 15) = 2.33, not 1.96. And the overlapping
+so the threshold on any t is sqrt(2*ln 15) = 2.33, not 1.96. And overlapping
 63-day windows inflate t by roughly sqrt(3), so divide by 1.7 first. Both
 corrections are applied in the verdict lines rather than left to the reader.
 
@@ -89,7 +89,7 @@ LONG = os.path.join(HERE, "cache_long")
 
 PROXY = "TLT"                      # the long-Treasury proxy in this cache
 MKT = "SPY"
-HORIZON = 63                       # trading days of forward return, one quarter
+HORIZON = 63                       # forward trading days, one quarter
 BETA_WINDOW = 252                  # trailing window for each name's rate beta
 VOL_WINDOW = 63                    # trailing window for realised volatility
 MOM_WINDOWS = {"1m": 21, "3m": 63, "6m": 126, "12m": 252}
@@ -351,7 +351,7 @@ def fit_one(tr: pd.DataFrame, ho: pd.DataFrame, cols: list[str], name: str,
 
 def run_variants(tr: pd.DataFrame, ho: pd.DataFrame, best: str,
                  seed: int = 0) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    """The four pre-registered variants, fitted on train, applied to holdout."""
+    """The four pre-registered variants: fit on train, apply to holdout."""
     out: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     for name in ("LOGIT", "TREE", "FOREST"):
         out[name] = fit_one(tr, ho, FEATURES, name, seed)
@@ -384,13 +384,14 @@ def hit_stats(y: np.ndarray, pred: np.ndarray, prob: np.ndarray,
 
 
 # ------------------------------------------------------------------- tables
-def base_rates(tr: pd.DataFrame, ho: pd.DataFrame) -> tuple[float, float, float]:
+def base_rates(tr: pd.DataFrame,
+               ho: pd.DataFrame) -> tuple[float, float, float]:
     """Three reference numbers, and they are not the same number.
 
-    HINDSIGHT MAJORITY on the holdout is the ceiling a constant prediction could
+    HINDSIGHT MAJORITY on the holdout is the ceiling a constant could
     have reached if you had known which constant to pick. REAL-TIME CONSTANT is
     what you would actually have scored by carrying the train period's majority
-    class forward, which is the only constant that was available on the decision
+    class forward, which is the only constant available on the decision
     date. When the two differ the unconditional direction has changed between
     the periods, and that fact dominates everything below it."""
     say("")
@@ -410,7 +411,7 @@ def base_rates(tr: pd.DataFrame, ho: pd.DataFrame) -> tuple[float, float, float]
     say("")
     say(f"  THE DIRECTION FLIPPED. Train's majority class was "
         f"{'rates DOWN' if const else 'rates UP'}; the holdout's")
-    say(f"  majority class is the OTHER one. So carrying the train prior forward")
+    say("  majority class is the OTHER one. So carrying the train prior")
     say(f"  unchanged scores {rt * 100:.1f}% on the holdout, not "
         f"{out[0] * 100:.1f}%.")
     say("")
@@ -421,10 +422,11 @@ def base_rates(tr: pd.DataFrame, ho: pd.DataFrame) -> tuple[float, float, float]
     say(f"  coin flip                           50.0%   "
         f"the number NOT to compare against")
     say("")
-    say("  A model is only interesting if it beats BOTH the real-time constant")
-    say("  and the hindsight majority. Beating only the first means it detected")
-    say("  the flip but still lost to a one-line rule chosen with hindsight;")
-    say("  beating only the second is arithmetically impossible here.")
+    say("  A model is only interesting if it beats BOTH the real-time")
+    say("  constant and the hindsight majority. Beating only the first")
+    say("  means it detected the flip but still lost to a one-line rule")
+    say("  chosen with hindsight; beating only the second is arithmetically")
+    say("  impossible here.")
     return out[0], out[1], rt
 
 
@@ -447,8 +449,8 @@ def holdout_table(tr: pd.DataFrame, ho: pd.DataFrame, best: str,
         f"{bar * se:.1f}pp over the reference.")
     say("")
     say("  'calls DOWN' is the share of holdout months the variant predicted")
-    say("  rates-DOWN. A variant sitting at 100% is a constant prediction with")
-    say("  a model attached, and its hit rate is the base rate, not a forecast.")
+    say("  rates-DOWN. A variant sitting at 100% is a constant prediction")
+    say("  with a model attached: its hit rate is the base rate.")
     say("")
     say(f"  {'variant':<26}{'trainCV':>9}{'calls DOWN':>12}{'holdout':>9}"
         f"{'vs maj':>8}{'vs RT':>7}{'z(maj)':>8}{'AUC':>7}")
@@ -473,9 +475,9 @@ def holdout_table(tr: pd.DataFrame, ho: pd.DataFrame, best: str,
         f"{0.0:>+7.1f}%{(ho_maj - rt_const) * 100:>+6.1f}%{0.0:>+8.2f}{'':>7}")
     say("")
     say("  Every number in the 'vs maj' column is negative or zero: not one")
-    say("  variant beat the constant a hindsight-chosen coin would have picked.")
-    say("  AUC is the only threshold-free column, so it is the only one that can")
-    say("  show ranking skill hiding behind a badly calibrated threshold. That is")
+    say("  variant beat the constant a hindsight-chosen coin would pick.")
+    say("  AUC is the only threshold-free column, so the only one that can")
+    say("  show ranking skill behind a miscalibrated threshold. That is")
     say("  what the block-shift null below is for.")
     return hits
 
@@ -518,7 +520,8 @@ def max_auc_shift_test(ho: pd.DataFrame,
 
 
 def univariate_table(tr: pd.DataFrame, ho: pd.DataFrame, ho_maj: float,
-                     bar: float) -> tuple[str, np.ndarray, dict[str, np.ndarray]]:
+                     bar: float
+                     ) -> tuple[str, np.ndarray, dict[str, np.ndarray]]:
     """Each predictor alone. Returns the best predictor BY AUC and its
     probability vector, so the block-shift null can be aimed at the strongest
     thing in the table rather than at the one the author liked."""
@@ -526,7 +529,7 @@ def univariate_table(tr: pd.DataFrame, ho: pd.DataFrame, ho_maj: float,
     se = np.sqrt(0.25 / n_effective(len(ho)))
     say("")
     say("=" * 84)
-    say("  ONE PREDICTOR AT A TIME -- is any single trailing series carrying it?")
+    say("  ONE PREDICTOR AT A TIME -- is one trailing series carrying it?")
     say("=" * 84)
     say(f"  {'predictor':<22}{'trainCV':>9}{'callsDOWN':>11}{'holdout':>9}"
         f"{'vs maj':>8}{'z(maj)':>8}{'AUC':>7}{'z(AUC)':>8}")
@@ -540,14 +543,15 @@ def univariate_table(tr: pd.DataFrame, ho: pd.DataFrame, ho_maj: float,
         rows.append((c, cv, float(pred.mean()), hit, z, auc,
                      auc_z(y, auc)))
         probs[c] = prob
-    for c, cv, call, hit, z, auc, za in sorted(rows, key=lambda r: -abs(r[5] - 0.5)):
+    for c, cv, call, hit, z, auc, za in sorted(
+            rows, key=lambda r: -abs(r[5] - 0.5)):
         say(f"  {c:<22}{cv * 100:>8.1f}%{call * 100:>10.0f}%{hit * 100:>8.1f}%"
             f"{(hit - ho_maj) * 100:>+7.1f}%{z:>+8.2f}{auc:>7.3f}{za:>+8.2f}")
     n_ok = sum(1 for r in rows if r[4] > bar)
     n_auc = sum(1 for r in rows if abs(r[6]) > bar)
     say("  " + "-" * 82)
     say(f"  {n_ok} of {len(FEATURES)} clear the hit-rate bar "
-        f"(|z| > {bar:.2f}, i.e. {bar * se * 100:.1f}pp over the majority rate)")
+        f"(|z| > {bar:.2f}, i.e. {bar * se * 100:.1f}pp over the majority)")
     say(f"  {n_auc} of {len(FEATURES)} clear the same bar on AUC")
     say("  Sorted by distance of AUC from 0.500, so the strongest RANKING")
     say("  predictor is at the top whichever way its sign points.")
@@ -559,7 +563,7 @@ def univariate_table(tr: pd.DataFrame, ho: pd.DataFrame, ho_maj: float,
 def auc_z(y: np.ndarray, auc: float) -> float:
     """z of an AUC against 0.5 on the EFFECTIVE sample.
 
-    The usual Mann-Whitney null variance, but with both class counts deflated by
+    The usual Mann-Whitney null variance, but both class counts deflated by
     the label overlap, because 52 monthly observations of a 63-day window are
     not 52 independent draws."""
     if not np.isfinite(auc):
@@ -572,12 +576,100 @@ def auc_z(y: np.ndarray, auc: float) -> float:
     return (auc - 0.5) / np.sqrt(var)
 
 
+def sign_and_episode_check(tr: pd.DataFrame, ho: pd.DataFrame,
+                           col: str) -> tuple[float, float, int]:
+    """For the strongest predictor: does TRAIN agree on the sign, and
+    is the holdout AUC one episode or a repeated pattern?
+
+    Two ways a 0.70 AUC on 53 overlapping months can be an accident. First, the
+    relationship may point the OTHER way in the training period, in which case
+    the holdout number is a coincidence and nobody could have signed it in
+    advance. Second, the holdout holds one enormous rates-up episode in 2022,
+    and a predictor that merely happened to be low throughout it separates the
+    classes beautifully without generalising to anything. A year-by-year AUC
+    answers both: one year above 0.5 and the rest at chance is an episode."""
+    say("")
+    say(f"  SIGN AGREEMENT AND EPISODE CHECK -- {col}")
+    raw = []
+    for tag, sub in (("train 2013-21", tr), ("holdout 2022-26", ho)):
+        y = sub.y.to_numpy()
+        if len(set(y)) < 2:
+            say(f"    {tag:<16} single-class, no AUC")
+            continue
+        a = float(roc_auc_score(y, sub[col].to_numpy(dtype=float)))
+        raw.append(a)
+        say(f"    {tag:<16}{len(sub):>4} months   raw AUC {a:>5.3f}")
+    agree = (len(raw) == 2 and np.sign(raw[0] - 0.5) == np.sign(raw[1] - 0.5))
+    say(f"    sign agreement between the two periods: "
+        f"{'YES' if agree else 'NO -- the relationship inverts'}")
+    say("")
+    say(f"    {'holdout year':<16}{'months':>8}{'AUC':>8}{'rates UP':>11}")
+    n_good = 0
+    for yr, sub in ho.groupby(ho.date.dt.year):
+        y = sub.y.to_numpy()
+        up = (1.0 - y.mean()) * 100
+        if len(set(y)) < 2:
+            say(f"    {yr:<16}{len(sub):>8}{'n/a':>8}{up:>10.0f}%  "
+                f"single-class year")
+            continue
+        a = float(roc_auc_score(y, sub[col].to_numpy(dtype=float)))
+        n_good += a > 0.5
+        say(f"    {yr:<16}{len(sub):>8}{a:>8.3f}{up:>10.0f}%")
+    say(f"    {n_good} holdout years with AUC above 0.5 out of "
+        f"{ho.date.dt.year.nunique()}")
+    return (raw[0] if raw else np.nan,
+            raw[1] if len(raw) > 1 else np.nan, n_good)
+
+
+def median_threshold_rule(tr: pd.DataFrame, ho: pd.DataFrame, col: str,
+                          ho_maj: float, rt_const: float) -> float:
+    """Answer the one real objection to calling this a null.
+
+    Every fitted variant above predicted the SAME class in nearly every holdout
+    month, because the logit inherited the train period's 64%-rates-DOWN prior
+    as its intercept. So "the hit rate equals the base rate" could be a broken
+    THRESHOLD hiding usable RANKING information rather than an absence of
+    information. This tests that objection instead of waving it away, with the
+    most threshold-free rule available: split at the TRAIN MEDIAN of the
+    predictor, take the direction from the TRAIN period, and judge once.
+
+    Being distribution-free, this rule cannot inherit a class prior at all: it
+    calls each side of the median about half the time by construction. It is
+    POST HOC -- it was written after seeing the AUC column -- so it is counted
+    as a sixteenth variant and is reported as post hoc whatever it says."""
+    thr = float(tr[col].median())
+    above_tr = tr[col].to_numpy(dtype=float) > thr
+    # direction taken from TRAIN only: which side of the median was more often
+    # followed by a rates-DOWN quarter
+    p_above = float(tr.y.to_numpy()[above_tr].mean())
+    p_below = float(tr.y.to_numpy()[~above_tr].mean())
+    above_means_down = p_above > p_below
+    above_ho = ho[col].to_numpy(dtype=float) > thr
+    pred = np.where(above_ho == above_means_down, 1, 0)
+    y = ho.y.to_numpy()
+    hit = float((pred == y).mean())
+    se = np.sqrt(0.25 / n_effective(len(ho)))
+    say("")
+    say(f"  POST-HOC MEDIAN-THRESHOLD RULE on {col}")
+    say(f"    train median {thr:+.2f}%; in train, above it was followed by "
+        f"rates-DOWN {p_above * 100:.0f}% of the time")
+    say(f"    and below it {p_below * 100:.0f}%, so the rule reads: "
+        f"{'above' if above_means_down else 'below'} the median -> rates DOWN")
+    say(f"    holdout hit rate {hit * 100:.1f}%  calls rates-DOWN "
+        f"{pred.mean() * 100:.0f}% of months")
+    say(f"    vs hindsight majority {ho_maj * 100:.1f}% "
+        f"({(hit - ho_maj) * 100:+.1f}pp, z = {(hit - ho_maj) / se:+.2f})")
+    say(f"    vs real-time constant {rt_const * 100:.1f}% "
+        f"({(hit - rt_const) * 100:+.1f}pp, z = {(hit - rt_const) / se:+.2f})")
+    return hit
+
+
 def block_shift_null(ho: pd.DataFrame, label: str, pred: np.ndarray,
                      prob: np.ndarray) -> None:
     """Circularly shift the holdout labels past a FIXED prediction vector.
 
     This is the honest replacement for the divide-t-by-1.7 rule of thumb. A
-    plain permutation of the labels would destroy their autocorrelation and make
+    plain permutation of the labels would destroy their autocorrelation and
     the null too narrow; a circular shift keeps the label series exactly as it
     is -- same runs, same 63-day overlap, same regime blocks -- and only breaks
     its ALIGNMENT with the predictions. The real score's percentile among the
@@ -599,7 +691,8 @@ def block_shift_null(ho: pd.DataFrame, label: str, pred: np.ndarray,
     a = np.array(aucs)
     p_hit = float((h >= hit_real).mean())
     p_auc = float((a >= auc_real).mean()) if len(a) else np.nan
-    p_auc2 = float((np.abs(a - 0.5) >= abs(auc_real - 0.5)).mean()) if len(a) else np.nan
+    p_auc2 = (float((np.abs(a - 0.5) >= abs(auc_real - 0.5)).mean())
+              if len(a) else np.nan)
     say(f"  {label}")
     say(f"    hit rate {hit_real * 100:>5.1f}%  shifted range "
         f"{h.min() * 100:>5.1f}% .. {h.max() * 100:>5.1f}%  "
@@ -609,13 +702,14 @@ def block_shift_null(ho: pd.DataFrame, label: str, pred: np.ndarray,
         f"(sd {a.std(ddof=1):.3f})   p = {p_auc:.3f}  two-sided {p_auc2:.3f}")
 
 
-def shuffled_control(tr: pd.DataFrame, ho: pd.DataFrame, hits: dict[str, float],
+def shuffled_control(tr: pd.DataFrame, ho: pd.DataFrame,
+                     hits: dict[str, float],
                      ho_maj: float, n: int) -> dict[str, np.ndarray]:
     """Re-run the WHOLE fit, selection included, on a shuffled train target.
 
     Shuffling the train labels destroys every relationship while preserving the
-    class balance, the feature matrix, the CV search and the selection step. The
-    holdout labels stay real, so the resulting distribution is exactly what this
+    class balance, the feature matrix, the CV search and the selection. The
+    holdout labels stay real, so the resulting distribution is what this
     method scores on noise. The real number has to beat that, not 50%."""
     say("")
     say("=" * 84)
@@ -640,14 +734,16 @@ def shuffled_control(tr: pd.DataFrame, ho: pd.DataFrame, hits: dict[str, float],
         beat = float((arr < real).mean()) * 100
         sd = float(arr.std(ddof=1))
         z = (real - arr.mean()) / sd if sd > 0 else np.nan
-        reading = ("outside the noise" if np.isfinite(z) and z > 2 and beat >= 95
+        reading = ("outside the noise"
+                   if np.isfinite(z) and z > 2 and beat >= 95
                    else "INSIDE THE NOISE")
         say(f"  {name:<16}{real * 100:>7.1f}%{arr.mean() * 100:>10.1f}%"
-            f"{sd * 100:>8.1f}%{arr.max() * 100:>9.1f}%{beat:>7.0f}%  {reading}")
+            f"{sd * 100:>8.1f}%{arr.max() * 100:>9.1f}%{beat:>7.0f}%  "
+            f"{reading}")
     say("")
-    say(f"  The majority-class rate on the holdout is {ho_maj * 100:.1f}%, and a")
+    say(f"  The holdout majority-class rate is {ho_maj * 100:.1f}%, and a")
     say("  model fitted on shuffled labels mostly collapses to a constant")
-    say("  prediction, so a null mean near that number is the expected shape of")
+    say("  prediction, so a null mean near that number is the expected")
     say("  this control, not a bug. What matters is whether the real run sits")
     say("  outside the spread.")
     return out
@@ -656,7 +752,7 @@ def shuffled_control(tr: pd.DataFrame, ho: pd.DataFrame, hits: dict[str, float],
 def beta_neutral_check(m: pd.DataFrame, bar: float) -> tuple[float, float]:
     """Rule 2's analogue for a single asset: strip the equity component out.
 
-    TLT and SPY co-move in places, so a model that appears to forecast bonds may
+    TLT and SPY co-move in places, so a model that seems to forecast bonds
     be forecasting stocks. Regress the forward TLT return on the forward SPY
     return using a TRAIN-PERIOD slope only, take the residual, and ask whether
     the sign of the BOND-SPECIFIC move is forecastable. If the headline only
@@ -701,8 +797,8 @@ def beta_neutral_check(m: pd.DataFrame, bar: float) -> tuple[float, float]:
 def long_only_translation(ho: pd.DataFrame, pred: np.ndarray) -> None:
     """What a cash account could actually have done with the forecast.
 
-    Long-only, no shorting, no leverage: hold TLT next month when the model says
-    rates DOWN, otherwise hold SPY. Non-overlapping monthly returns, compounded.
+    Long-only, no shorting, no leverage: hold TLT next month when it says
+    rates DOWN, else hold SPY. Non-overlapping monthly returns, compounded.
     The bar is not zero and it is not 9%: SPY compounded at 14.78% over this
     sample and an equal-weight version of the universe at 14.82%."""
     say("")
@@ -729,7 +825,8 @@ def long_only_translation(ho: pd.DataFrame, pred: np.ndarray) -> None:
     say(f"  {len(h)} monthly decisions over {yrs:.1f} years, non-overlapping")
     say(f"  {'sleeve':<34}{'CAGR':>9}")
     say("  " + "-" * 44)
-    say(f"  {'model: TLT when rates-DOWN else SPY':<34}{cagr(r_switch):>+8.2f}%")
+    say(f"  {'model: TLT when rates-DOWN else SPY':<34}"
+        f"{cagr(r_switch):>+8.2f}%")
     say(f"  {'SPY held throughout':<34}"
         f"{cagr(h.spy_next.to_numpy() / 100.0):>+8.2f}%")
     say(f"  {'TLT held throughout':<34}"
@@ -740,7 +837,7 @@ def long_only_translation(ho: pd.DataFrame, pred: np.ndarray) -> None:
     say(f"  the model parked in TLT on {n_tlt} of {len(h)} months")
     say("  A switch rule can only beat SPY if it avoids equity drawdowns with")
     say("  bond gains, which requires the direction call to be right. If the")
-    say("  hit rate is the base rate, this line is a lottery ticket on timing.")
+    say("  hit rate is the base rate, this line is a lottery ticket.")
 
 
 # --------------------------------------------------------------------- main
@@ -767,22 +864,24 @@ def main() -> None:
 
     say("")
     say("=" * 84)
-    say("  BLOCK-SHIFT NULL -- the overlap penalty measured instead of assumed")
+    say("  BLOCK-SHIFT NULL -- the overlap penalty measured, not assumed")
     say("=" * 84)
     say(f"  {len(ho) - 1} circular shifts of the holdout label series past a "
         f"fixed prediction vector.")
-    say("  The labels keep their own autocorrelation; only the alignment dies.")
+    say("  The labels keep their autocorrelation; only alignment dies.")
     say("")
     block_shift_null(ho, "LOGIT, all 11 predictors", *preds["LOGIT"])
     tp_pred = (top_prob > 0.5).astype(int)
     block_shift_null(ho, f"strongest univariate by AUC: {top_auc}",
                      tp_pred, top_prob)
     say("")
-    say("  The two-sided AUC p-value is the one to read for the univariate row,")
-    say("  because that predictor was chosen FOR having an extreme AUC and its")
+    say("  The two-sided AUC p-value is the one to read for the univariate")
+    say("  row, because that predictor was chosen FOR an extreme AUC and its")
     say("  sign was not pre-registered. Even that is not enough, because the")
     say("  choice was made over eleven candidates. The next test prices that.")
     max_auc_shift_test(ho, all_probs)
+    sign_and_episode_check(tr, ho, top_auc)
+    median_threshold_rule(tr, ho, top_auc, ho_maj, rt_const)
 
     shuffled_control(tr, ho, hits, ho_maj, n_shuf)
     beta_neutral_check(m, bar)
@@ -792,12 +891,37 @@ def main() -> None:
     say("=" * 84)
     say("  WHAT THIS SETTLES")
     say("=" * 84)
-    say("  The only question this file asks is whether the 63-day rate")
-    say("  direction can be called from trailing public data. If it cannot,")
-    say("  then rate_foresight.py's ceiling is unreachable, any regime-")
-    say("  conditional screen is conditioning on a coin flip, and the FOMC")
-    say("  line of enquiry is closed on the data available here. Read the")
-    say("  holdout table against the majority-class column, not against 50%.")
+    say("  Not one of the fifteen pre-registered variants beat the holdout")
+    say("  majority-class rate. Every one landed BELOW it, because the")
+    say("  unconditional direction flipped between the two periods: the train")
+    say("  era was 64% rates-DOWN and the holdout 62% rates-UP, so a model")
+    say("  that learned the prior carried the wrong constant forward. That")
+    say("  flip is the headline, and it is worse news for an FOMC screen than")
+    say("  a flat result would be: the base rate itself is not stationary, so")
+    say("  there is no constant to fall back on when the forecast is silent.")
+    say("")
+    say("  The one thing that looked like something was a trailing trend")
+    say("  predictor reaching AUC 0.70 on the holdout. It failed on three")
+    say("  separate counts: the train period showed nearly nothing for it")
+    say("  (raw AUC 0.452, a 63%-vs-65% median split), so its sign could not")
+    say("  have been chosen in advance; the max-statistic block-shift test")
+    say("  that prices the eleven-way search returns p = 0.25; and no")
+    say("  threshold, fitted or distribution-free, converts the ranking")
+    say("  into a hit rate that beats the base rate.")
+    say("")
+    say("  So the answer to the question in the title is NO, at this horizon,")
+    say("  on this sample, from these predictors. That is the answer the")
+    say("  literature already gives for quarterly bond returns, and finding")
+    say("  it again is a confirmation, not a failed search. The consequence")
+    say("  is the expensive part: rate_foresight.py's ceiling is unreachable,")
+    say("  any regime-conditional screen is conditioning on a coin flip, and")
+    say("  the FOMC line of enquiry is closed on the data available here.")
+    say("")
+    say("  WHAT WOULD REOPEN IT. Not a better classifier: eighteen effective")
+    say("  observations cannot support one. It would take either a genuinely")
+    say("  forward-looking rate input this cache does not contain (fed funds")
+    say("  futures, the OIS curve, breakevens), or a decision that does not")
+    say("  need the direction called at all.")
 
 
 if __name__ == "__main__":

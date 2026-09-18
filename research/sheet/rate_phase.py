@@ -143,7 +143,8 @@ HOLDOUT_START = pd.Timestamp("2022-01-01")
 # sqrt(2 ln K), not 1.96.
 N_VARIANTS = 40
 SEARCH_BAR = float(np.sqrt(2 * np.log(N_VARIANTS)))
-NEGLIGIBLE_SPREAD = 0.5    # below this, a "percent explained" ratio is noise/noise
+# Below this spread, a "percent explained" ratio is noise divided by noise.
+NEGLIGIBLE_SPREAD = 0.5
 
 # Equal-weight version of this universe compounded at this CAGR 2013-2026;
 # SPY itself did 14.78%. Any absolute return below this is a loss of money
@@ -325,7 +326,8 @@ def load() -> pd.DataFrame:
     edges = np.quantile(tr12[tr12.index <= TRAIN_END].to_numpy(), [1 / 3, 2 / 3])
     say(f"  trailing-12m TLT terciles cut on train only at "
         f"{edges[0]:+.2f}% / {edges[1]:+.2f}%")
-    d["trail_phase"] = pd.cut(d.tlt_trail12, [-np.inf, edges[0], edges[1], np.inf],
+    bins = [-np.inf, edges[0], edges[1], np.inf]
+    d["trail_phase"] = pd.cut(d.tlt_trail12, bins,
                               labels=list(reversed(TRAIL_PHASES)))
     d["trail_phase"] = d.trail_phase.astype(object)
     # THE DELIBERATE LOOKAHEAD, same trick as rate_foresight.py: what long
@@ -454,7 +456,8 @@ def spread_table(d: pd.DataFrame, mask: pd.Series, title: str,
             cred = ("ANECDOTE, not a measurement"
                     if raw["months"] < MIN_CREDIBLE_MONTHS else "measurable")
             say(f"  {ph:<15}{raw['months']:>8}{raw['months'] / 3.0:>7.1f}"
-                f"{raw['spread']:>+12.2f}%{fmt(raw['t'], 7)}{fmt(raw['t_adj'], 8)}"
+                f"{raw['spread']:>+12.2f}%{fmt(raw['t'], 7)}"
+                f"{fmt(raw['t_adj'], 8)}"
                 f"{fmt(raw['mono'], 7)}"
                 f"{bn['spread']:>+11.2f}%{fmt(bn['t'], 7)}{fmt(bn['t_adj'], 8)}"
                 f"  {cred}")
