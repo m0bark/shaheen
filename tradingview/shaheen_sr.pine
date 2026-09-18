@@ -29,8 +29,8 @@ minShow = input.int(2, "Min touches to draw a level", minval = 1, group = grpD)
 maxShow = input.int(12, "Max levels to show", minval = 2, group = grpD)
 
 grpS   = "Strength tiers (touches = reversals)"
-strongN = input.int(5, "STRONG at N touches", minval = 2, group = grpS)
-majorN  = input.int(9, "MAJOR at N touches",  minval = 3, group = grpS)
+strongN = input.int(5,  "STRONG at N touches", minval = 2, group = grpS)
+majorN  = input.int(11, "MAJOR at N touches",  minval = 3, group = grpS)
 
 grpC   = "Confluences"
 showMA   = input.bool(true, "Plot 50 / 200 MA (dynamic S/R)", group = grpC)
