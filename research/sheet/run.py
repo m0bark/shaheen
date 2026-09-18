@@ -59,12 +59,14 @@ def main() -> None:
     if "--daily" in a or "--once" in a:
         step("fetch.py", "--fundamentals")
         step("fetch.py", "--options")
+        step("kuwait.py")        # Boursa Kuwait prices + ratings (changes slowly)
     if "--alerts" not in a:
         if not step("fetch.py", "--prices"):
             say("price fetch failed; keeping the previous cache")
         step("build_workbook.py")
         step("logs.py")          # the three headline ledgers
         step("ladders.py")       # 18 probation rungs + sanity + excel
+        step("golden_alert.py", "--scan")   # golden-zone entries -> Telegram + PDF
         # Google Sheets push is best-effort: no credentials means no push, and
         # that must never take the local workbook down with it
         if os.path.exists(os.path.join(HERE, "gcreds.json")):

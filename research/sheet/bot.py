@@ -67,6 +67,9 @@ def _mod(name, path):
 
 
 al = _mod("al", os.path.join(HERE, "alerts.py"))
+se = _mod("se", os.path.join(HERE, "signal_engine.py"))
+ai = _mod("ai", os.path.join(HERE, "ai_layer.py"))
+ga = _mod("ga", os.path.join(HERE, "golden_alert.py"))
 tw = None
 
 
@@ -338,8 +341,91 @@ def cmd_confirm(arg):
     return chr(10).join(out)
 
 
+def _i(v, default="-"):
+    try:
+        import math as _m
+        f = float(v)
+        return str(int(f)) if not _m.isnan(f) else default
+    except (TypeError, ValueError):
+        return default
+
+
+def cmd_rate(arg):
+    """Fundamental + technical rating /100, plan and dollar risk for one name."""
+    sym = (arg or "").strip().upper()
+    if not sym:
+        return "usage: /rate SYMBOL"
+    d = se.load_signals()
+    r = d[d.symbol == sym]
+    if r.empty:
+        return f"no data for {sym}"
+    r = r.iloc[0]
+    rows = [
+        f"fundamental    {_i(r.fund_100)}/100",
+        f"technical      {_i(r.tech_100)}/100",
+        f"zone           {r.zone_status}",
+        f"entry/stop/tgt {r.entry} / {r.stop} / {r.target}",
+        f"reward:risk    {r.rr}:1",
+        f"risk ${_i(r.risk_dollars)} -> gain ${_i(r.gain_dollars)} on {_i(r.shares)} sh",
+        f"halal          {r.get('halal_auto', '?')}",
+    ]
+    return f"<b>{sym} RATING</b>\n" + code(chr(10).join(rows))
+
+
+def cmd_thesis(arg):
+    """Full AI thesis for one name (news + insider + rating -> Claude)."""
+    sym = (arg or "").strip().upper()
+    if not sym:
+        return "usage: /thesis SYMBOL"
+    d = se.load_signals()
+    r = d[d.symbol == sym]
+    if r.empty:
+        return f"no data for {sym}"
+    ev = ga.build_evidence(r.iloc[0], ga.cfg())
+    return (f"<b>{sym} THESIS</b>  F {_i(ev.get('fund_100'))} / T {_i(ev.get('tech_100'))} "
+            f"| R:R {ev.get('rr')}:1\nInsider: {ev.get('insider')}\n\n{ev.get('thesis','')}")
+
+
+def cmd_macro(_):
+    """Overall world/markets thesis on your Claude subscription."""
+    d = se.load_signals()
+    m = ai.macro_thesis(ga.macro_context(d, ga.cfg()))
+    return f"<b>WORLD THESIS</b>\n{m}"
+
+
+def cmd_kw(_):
+    """Kuwaiti names in the golden / buy zone (valuation + technical only)."""
+    d = load("kuwait")
+    if d.empty:
+        return "no Kuwait data yet - run research/sheet/kuwait.py to build it"
+    is_g = d["golden"].astype(str).isin(["True", "true", "1"]) if "golden" in d.columns else None
+    g = d[is_g] if is_g is not None and is_g.any() else d[d.zone_status.isin(["AT ZONE", "IN ZONE"])]
+    g = g.sort_values("fund_100", ascending=False).head(20)
+    out = [f"{'sym':<10}{'F':>4}{'T':>4}{'R:R':>6}  zone"]
+    for r in g.itertuples():
+        rr = format(r.rr, ">6") if r.rr == r.rr else "   -"
+        out.append(f"{r.symbol:<10}{_i(r.fund_100):>4}{_i(r.tech_100):>4}{rr:>6}  {r.zone_status}")
+    return ("<b>KUWAIT buy zone</b>\n" + code(chr(10).join(out))
+            + "\nValuation + technical only - no insider/US-news layer in Kuwait.")
+
+
+def cmd_golden(_):
+    """Names in the golden buy zone right now."""
+    d = se.load_signals()
+    g = d[d.golden].sort_values("fund_100", ascending=False)
+    if g.empty:
+        return "nothing in the golden buy zone right now"
+    out = [f"{'sym':<6}{'F':>4}{'T':>4}{'R:R':>6}  zone"]
+    for r in g.head(20).itertuples():
+        out.append(f"{r.symbol:<6}{_i(r.fund_100):>4}{_i(r.tech_100):>4}"
+                   f"{format(r.rr, '>6') if r.rr == r.rr else '   -':>6}  {r.zone_status}")
+    return ("<b>GOLDEN BUY ZONE</b>\n" + code(chr(10).join(out))
+            + "\nA full alert with thesis + PDF fires automatically on new entries.")
+
+
 CMDS = {"confirm": cmd_confirm, "top": cmd_top, "zone": cmd_zone, "movers": cmd_movers, "why": cmd_why,
         "q": cmd_q, "upgrades": cmd_upgrades, "unusual": cmd_unusual,
+        "rate": cmd_rate, "thesis": cmd_thesis, "macro": cmd_macro, "golden": cmd_golden, "kw": cmd_kw,
         "watch": cmd_watch, "unwatch": cmd_unwatch, "alerts": cmd_alerts,
         "follow": cmd_follow, "following": cmd_following, "status": cmd_status}
 
@@ -351,6 +437,10 @@ def cmd_help(_):
         "/movers       biggest moves + why\n"
         "/why NVDA     full forensics\n"
         "/q NVDA       quick card\n"
+        "/rate NVDA    fundamental + technical /100 + plan\n"
+        "/thesis NVDA  AI thesis (news+insider+rating)\n"
+        "/golden       names in the golden buy zone now\n"
+        "/macro        world/markets thesis\n"
         "/upgrades     recent analyst upgrades\n"
         "/unusual      unusual option premium\n"
         "/watch MSFT 360    arm an alert\n"

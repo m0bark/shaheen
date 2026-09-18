@@ -1,0 +1,84 @@
+//@version=5
+// =====================================================================
+// SHAHEEN - Support / Resistance + Buy-Zone overlay
+// Paste into TradingView: Pine Editor -> new indicator -> paste -> Add to chart.
+//
+// What it draws
+//   * Auto support/resistance from swing pivots (the same idea the desk uses:
+//     recent swing lows = support, swing highs = resistance).
+//   * A shaded GOLDEN BUY ZONE between the desk's Entry and Stop, so the level
+//     the Telegram alert quoted is visible on your own chart.
+//   * Entry / Stop / Target lines you type in from the alert.
+//   * An optional INSIDER WARNING flag - Pine cannot read SEC filings, so the
+//     insider read is computed by the desk and pushed to Telegram; flip this on
+//     and set the note when an alert says heavy insider selling, to mark it.
+//
+// Alerts: "Price entered buy zone" fires when price trades down into the band.
+// =====================================================================
+indicator("Shaheen S/R + Buy Zone", overlay = true, max_lines_count = 200,
+     max_labels_count = 100)
+
+// ------- inputs: paste these from the Telegram alert -------------------
+grpDesk   = "Desk levels (from the alert)"
+useDesk   = input.bool(true,  "Show desk Entry/Stop/Target", group = grpDesk)
+entryP    = input.float(0.0,  "Entry",  group = grpDesk)
+stopP     = input.float(0.0,  "Stop",   group = grpDesk)
+targetP   = input.float(0.0,  "Target", group = grpDesk)
+
+grpIns    = "Insider (from the desk / Telegram)"
+insWarn   = input.bool(false, "Insider WARNING on this name", group = grpIns)
+insNote   = input.string("heavy insider selling (30d)", "Insider note", group = grpIns)
+
+grpPiv    = "Auto support / resistance"
+pivLen    = input.int(15, "Swing strength (bars each side)", minval = 3, group = grpPiv)
+showPiv   = input.bool(true, "Show auto S/R", group = grpPiv)
+maxLevels = input.int(4, "Levels each side", minval = 1, maxval = 10, group = grpPiv)
+
+// ------- auto swing pivots -> S/R lines --------------------------------
+ph = ta.pivothigh(high, pivLen, pivLen)
+pl = ta.pivotlow(low, pivLen, pivLen)
+
+var line[]  resLines = array.new_line()
+var line[]  supLines = array.new_line()
+
+drawLevel(float price, color col) =>
+    ln = line.new(bar_index - pivLen, price, bar_index, price,
+         extend = extend.right, color = col, width = 1, style = line.style_dotted)
+    ln
+
+trim(line[] arr) =>
+    while array.size(arr) > maxLevels
+        line.delete(array.shift(arr))
+
+if showPiv and not na(ph)
+    array.push(resLines, drawLevel(ph, color.new(color.red, 20)))
+    trim(resLines)
+if showPiv and not na(pl)
+    array.push(supLines, drawLevel(pl, color.new(color.green, 20)))
+    trim(supLines)
+
+// ------- desk levels + shaded buy zone ---------------------------------
+plot(useDesk and entryP  > 0 ? entryP  : na, "Entry",  color.new(color.blue, 0),
+     2, plot.style_linebr)
+plot(useDesk and stopP   > 0 ? stopP   : na, "Stop",   color.new(color.red, 0),
+     2, plot.style_linebr)
+plot(useDesk and targetP > 0 ? targetP : na, "Target", color.new(color.teal, 0),
+     2, plot.style_linebr)
+
+eTop = useDesk and entryP > 0 ? entryP : na
+sBot = useDesk and stopP  > 0 ? stopP  : na
+pEntry = plot(eTop, "zoneTop", display = display.none)
+pStop  = plot(sBot, "zoneBot", display = display.none)
+fill(pEntry, pStop, color = color.new(color.green, 85), title = "Golden buy zone")
+
+// ------- insider warning marker ----------------------------------------
+if insWarn and barstate.islast
+    label.new(bar_index, high, "INSIDER: " + insNote, style = label.style_label_down,
+         color = color.new(color.orange, 0), textcolor = color.white, size = size.small)
+
+// ------- alert: price traded into the zone -----------------------------
+inZone = useDesk and entryP > 0 and stopP > 0 and low <= entryP and high >= stopP
+alertcondition(inZone, "Price entered buy zone",
+     "Price is in the Shaheen buy zone (entry/stop band).")
+plotshape(inZone and not inZone[1], title = "Entered zone", style = shape.triangleup,
+     location = location.belowbar, color = color.new(color.green, 0), size = size.tiny)

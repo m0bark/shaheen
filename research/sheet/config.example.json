@@ -2,8 +2,23 @@
   "_comment": "Copy this to config.json and fill in your own values. config.json is gitignored and must never be committed. Get a bot token from @BotFather on Telegram with /newbot; get your chat id by messaging the bot and opening https://api.telegram.org/bot<TOKEN>/getUpdates",
   "telegram_token": "PUT_YOUR_BOT_TOKEN_HERE",
   "telegram_chat_id": "PUT_YOUR_NUMERIC_CHAT_ID_HERE",
+  "allowed_chats": [],
   "hourly_minutes": 60,
   "alert_minutes": 5,
   "market_hours_only": true,
-  "buy_zone_max_discount_pct": 25
+  "buy_zone_max_discount_pct": 25,
+
+  "_sizing": "position sizing for the dollar risk/gain in every alert",
+  "account_size": 25000,
+  "risk_per_trade_pct": 1.5,
+
+  "_golden": "a stock enters the GOLDEN buy zone when all of these hold",
+  "golden_rate_min": 55,
+  "golden_within_pct": 3.0,
+  "golden_require_halal": false,
+
+  "_ai": "AI layer runs on your Claude subscription via the local `claude` CLI",
+  "ai_enabled": true,
+  "ai_model": "sonnet",
+  "ai_macro_hours": 12
 }

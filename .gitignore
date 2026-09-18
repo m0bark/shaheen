@@ -76,3 +76,8 @@ anonymous-insta_stories-viewer/
 
 # telegram bot runtime offset - per-machine state, not shared
 research/sheet/bot_offset.txt
+
+# golden alert runtime state (per-machine) + generated PDFs
+research/sheet/golden_state.json
+research/sheet/golden_macro_state.json
+research/sheet/reports/
