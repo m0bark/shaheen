@@ -1,63 +1,73 @@
 //@version=5
 // =====================================================================
-// SHAHEEN  -  Support / Resistance by touch strength
+// SHAHEEN  -  Support / Resistance + supply/demand zones by touch strength
 // Paste into TradingView: Pine Editor -> paste -> Add to chart.
 //
-// It finds swing highs and lows, groups the ones sitting at the same price
-// into a single LEVEL, and counts how many times price has reversed there.
-// The more reversals a level has survived, the stronger it is - a line the
-// market has respected 5 or 10 times matters more than a one-off wick.
+// Finds swing highs and lows, groups same-price swings into one LEVEL, and
+// counts how many times price reversed there. More reversals = stronger.
+// Each level is drawn as a line PLUS a shaded zone band (the "area"), because
+// support/resistance is a zone, not a hairline.
 //
-//   green line  = support    (level at/below current price)
-//   red line    = resistance (level above current price)
+//   green = support / demand   (at or below current price)
+//   red   = resistance / supply (above current price)
 //   width/style = strength: thin dashed (weak) -> thick solid (major)
-//   label       = "S x7 STRONG +MA" : side, touch count, tier, and any
-//                 confluence (near the 50/200 MA, a round number, or tested
-//                 on heavy volume)
+//   label = "R x11 MAJOR +MA +round +vol"
+//
+// The +vol tag: at least one of the reversals at that level happened on a
+// VOLUME SPIKE (>1.5x the 20-bar average). It means big players were active
+// defending the level, not a quiet wick - a level bought/sold hard is more
+// likely to hold again.
 //
 // No buy price is drawn - that formula is not trusted yet, on purpose.
 // =====================================================================
-indicator("Shaheen S/R (touch strength)", overlay = true,
-     max_lines_count = 500, max_labels_count = 500)
+indicator("Shaheen S/R + zones", overlay = true,
+     max_lines_count = 500, max_labels_count = 500, max_boxes_count = 400)
 
 // ---- inputs ----------------------------------------------------------
-grpD   = "Detection"
-piv    = input.int(10, "Swing strength (bars each side)", minval = 2, group = grpD)
-tolMlt = input.float(0.6, "Merge tolerance (x ATR)", minval = 0.1, step = 0.1,
-     group = grpD, tooltip = "Swings within this distance count as the same level")
-minShow = input.int(2, "Min touches to draw a level", minval = 1, group = grpD)
-maxShow = input.int(12, "Max levels to show", minval = 2, group = grpD)
+grpD   = "Detection (lower = more levels)"
+piv    = input.int(6, "Swing strength (bars each side)", minval = 2, group = grpD,
+     tooltip = "Smaller finds more, smaller swings. 3-5 = busy, 8-12 = only majors")
+tolMlt = input.float(0.5, "Merge tolerance (x ATR)", minval = 0.1, step = 0.1,
+     group = grpD, tooltip = "Swings within this distance count as one level/zone")
+minShow = input.int(1, "Min touches to draw a level", minval = 1, group = grpD)
+maxShow = input.int(25, "Max levels to show", minval = 2, maxval = 60, group = grpD)
+lblMin  = input.int(2, "Label a level from N touches", minval = 1, group = grpD,
+     tooltip = "Weaker levels still get a line/zone, just no text, to cut clutter")
 
 grpS   = "Strength tiers (touches = reversals)"
 strongN = input.int(5,  "STRONG at N touches", minval = 2, group = grpS)
 majorN  = input.int(11, "MAJOR at N touches",  minval = 3, group = grpS)
 
+grpZ   = "Zones"
+showZone = input.bool(true, "Shade the zone band", group = grpZ)
+
 grpC   = "Confluences"
-showMA   = input.bool(true, "Plot 50 / 200 MA (dynamic S/R)", group = grpC)
+showMA   = input.bool(true, "Plot 50 / 200 MA", group = grpC)
 useMA    = input.bool(true, "Tag levels near a 50/200 MA (+MA)", group = grpC)
 useRound = input.bool(true, "Tag round-number levels (+round)", group = grpC)
 useVol   = input.bool(true, "Tag levels tested on heavy volume (+vol)", group = grpC)
 
 grpK   = "Colors"
-cSup = input.color(color.new(color.green, 0), "Support", group = grpK)
-cRes = input.color(color.new(color.red, 0),   "Resistance", group = grpK)
+cSup = input.color(color.new(color.green, 0), "Support / demand", group = grpK)
+cRes = input.color(color.new(color.red, 0),   "Resistance / supply", group = grpK)
 
-// ---- per-bar context (must be called every bar) ----------------------
+// ---- per-bar context (must run every bar) ----------------------------
 atr    = ta.atr(14)
 sma50  = ta.sma(close, 50)
 sma200 = ta.sma(close, 200)
 volAvg = ta.sma(volume, 20)
 
 // ---- level store (persists across bars) ------------------------------
-var float[] lvlP = array.new_float()      // level price (running mean of touches)
+var float[] lvlP = array.new_float()      // price (running mean of touches)
 var int[]   lvlT = array.new_int()        // touch / reversal count
-var int[]   lvlB = array.new_int()        // bar index of last touch
+var int[]   lvlB = array.new_int()        // bar of last touch
+var int[]   lvlF = array.new_int()        // bar first seen
 var bool[]  lvlV = array.new_bool()       // ever tested on heavy volume
-var int[]   order = array.new_int()       // draw order scratch (reused each bar)
+var int[]   order = array.new_int()       // scratch for draw ordering
 
-// add a swing to the store, merging into a nearby level if one exists.
-// Everything it needs is passed in, so it never reaches into global state.
-addTouch(pP, pT, pB, pV, float p, bool heavy, float tol, int bidx) =>
+// merge a swing into a nearby level or create a new one. Self-contained:
+// everything it needs is a parameter (no reaching into globals).
+addTouch(pP, pT, pB, pF, pV, float p, bool heavy, float tol, int bidx) =>
     merged = false
     if array.size(pP) > 0
         for i = 0 to array.size(pP) - 1
@@ -74,11 +84,11 @@ addTouch(pP, pT, pB, pV, float p, bool heavy, float tol, int bidx) =>
         array.push(pP, p)
         array.push(pT, 1)
         array.push(pB, bidx)
+        array.push(pF, bidx)
         array.push(pV, heavy)
 
-// drop the weakest levels when the store grows too large
-prune(pP, pT, pB, pV) =>
-    while array.size(pP) > 60
+prune(pP, pT, pB, pF, pV) =>
+    while array.size(pP) > 120
         w = 0
         for i = 1 to array.size(pT) - 1
             if array.get(pT, i) < array.get(pT, w)
@@ -86,26 +96,28 @@ prune(pP, pT, pB, pV) =>
         array.remove(pP, w)
         array.remove(pT, w)
         array.remove(pB, w)
+        array.remove(pF, w)
         array.remove(pV, w)
 
 isRound(float p, float tol) =>
     step = p < 10 ? 0.5 : p < 100 ? 5.0 : p < 1000 ? 10.0 : 50.0
     math.abs(p - math.round(p / step) * step) <= tol
 
-// confirmed swings (value is `piv` bars back)
+// ---- collect swings --------------------------------------------------
 tol = atr * tolMlt
 ph = ta.pivothigh(high, piv, piv)
 pl = ta.pivotlow(low, piv, piv)
 heavyNow = volume > volAvg * 1.5
 if not na(ph)
-    addTouch(lvlP, lvlT, lvlB, lvlV, ph, heavyNow, tol, bar_index)
+    addTouch(lvlP, lvlT, lvlB, lvlF, lvlV, ph, heavyNow, tol, bar_index)
 if not na(pl)
-    addTouch(lvlP, lvlT, lvlB, lvlV, pl, heavyNow, tol, bar_index)
-prune(lvlP, lvlT, lvlB, lvlV)
+    addTouch(lvlP, lvlT, lvlB, lvlF, lvlV, pl, heavyNow, tol, bar_index)
+prune(lvlP, lvlT, lvlB, lvlF, lvlV)
 
-// ---- draw on the last bar only (clean redraw each time) --------------
+// ---- draw on the last bar (clean redraw) -----------------------------
 var line[]  lns = array.new_line()
 var label[] lbs = array.new_label()
+var box[]   bxs = array.new_box()
 
 if barstate.islast
     if array.size(lns) > 0
@@ -114,10 +126,14 @@ if barstate.islast
     if array.size(lbs) > 0
         for i = 0 to array.size(lbs) - 1
             label.delete(array.get(lbs, i))
+    if array.size(bxs) > 0
+        for i = 0 to array.size(bxs) - 1
+            box.delete(array.get(bxs, i))
     array.clear(lns)
     array.clear(lbs)
+    array.clear(bxs)
 
-    // collect indices that clear minShow, then sort by touches (desc)
+    // eligible level indices, sorted by touches desc
     array.clear(order)
     if array.size(lvlP) > 0
         for i = 0 to array.size(lvlP) - 1
@@ -132,6 +148,7 @@ if barstate.islast
                 b := b - 1
             array.set(order, b + 1, key)
 
+    band = tol * 0.5
     lim = math.min(maxShow, array.size(order))
     if lim > 0
         for j = 0 to lim - 1
@@ -142,25 +159,31 @@ if barstate.islast
             col = isSup ? cSup : cRes
             w = tc >= majorN ? 3 : tc >= strongN ? 2 : 1
             stl = tc >= strongN ? line.style_solid : line.style_dashed
+
             array.push(lns, line.new(bar_index - 1, p, bar_index, p,
                  extend = extend.both, color = col, width = w, style = stl))
 
-            tag = (isSup ? "S" : "R") + " x" + str.tostring(tc)
-            tag := tc >= majorN ? tag + " MAJOR" : tc >= strongN ? tag + " STRONG" : tag
-            if useMA and (math.abs(p - sma50) <= tol or math.abs(p - sma200) <= tol)
-                tag := tag + " +MA"
-            if useRound and isRound(p, tol)
-                tag := tag + " +round"
-            if useVol and array.get(lvlV, i)
-                tag := tag + " +vol"
-            // dark box + bright coloured text reads cleanly on any chart, and
-            // sitting a few bars into the right margin keeps it off the candles
-            array.push(lbs, label.new(bar_index + 4, p, tag, xloc = xloc.bar_index,
-                 style = label.style_label_left,
-                 color = color.new(color.black, 10), textcolor = col,
-                 size = size.normal))
+            if showZone
+                left = math.max(array.get(lvlF, i), bar_index - 300)
+                array.push(bxs, box.new(left, p + band, bar_index + 6, p - band,
+                     border_color = color.new(col, 60),
+                     bgcolor = color.new(col, 88)))
 
-// ---- confluence MAs (global-scope plots) -----------------------------
+            if tc >= lblMin
+                tag = (isSup ? "S" : "R") + " x" + str.tostring(tc)
+                tag := tc >= majorN ? tag + " MAJOR" : tc >= strongN ? tag + " STRONG" : tag
+                if useMA and (math.abs(p - sma50) <= tol or math.abs(p - sma200) <= tol)
+                    tag := tag + " +MA"
+                if useRound and isRound(p, tol)
+                    tag := tag + " +round"
+                if useVol and array.get(lvlV, i)
+                    tag := tag + " +vol"
+                array.push(lbs, label.new(bar_index + 6, p, tag, xloc = xloc.bar_index,
+                     style = label.style_label_left,
+                     color = color.new(color.black, 10), textcolor = col,
+                     size = size.normal))
+
+// ---- confluence MAs --------------------------------------------------
 plot(showMA ? sma50 : na, "MA 50", color.new(color.orange, 0), 1)
 plot(showMA ? sma200 : na, "MA 200", color.new(color.blue, 0), 2)
 
